@@ -1,0 +1,20 @@
+# Secrets — never commit
+.env
+*.env
+!.env.example
+
+# Robinhood / robin_stocks pickle session cache
+*.pickle
+.tokens/
+robinhood.pickle
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# OS
+.DS_Store

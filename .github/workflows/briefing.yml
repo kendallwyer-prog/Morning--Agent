@@ -1,0 +1,79 @@
+name: Morning Briefing
+
+on:
+  # 7:00 AM America/New_York. Cron is UTC and has no DST awareness, so we run
+  # two entries: 11:00 UTC (EDT, summer) and 12:00 UTC (EST, winter). The job
+  # guards against double-send by checking the local hour before building.
+  schedule:
+    - cron: "0 11 * * *"
+    - cron: "0 12 * * *"
+  workflow_dispatch: {}  # manual "Run workflow" button for testing
+
+# Allow the job to commit no-repeat state (data/history.json) back to the repo.
+permissions:
+  contents: write
+
+concurrency:
+  group: morning-briefing
+  cancel-in-progress: false
+
+jobs:
+  briefing:
+    runs-on: ubuntu-latest
+    env:
+      TIMEZONE: ${{ secrets.TIMEZONE || 'America/New_York' }}
+      NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+      NTFY_SERVER: ${{ secrets.NTFY_SERVER }}
+      GNEWS_API_KEY: ${{ secrets.GNEWS_API_KEY }}
+      NEWS_CATEGORIES: ${{ secrets.NEWS_CATEGORIES }}
+      NEWS_COUNTRY: ${{ secrets.NEWS_COUNTRY }}
+      NEWS_LANG: ${{ secrets.NEWS_LANG }}
+      RH_USERNAME: ${{ secrets.RH_USERNAME }}
+      RH_PASSWORD: ${{ secrets.RH_PASSWORD }}
+      RH_MFA_SECRET: ${{ secrets.RH_MFA_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Skip duplicate DST run
+        id: gate
+        run: |
+          python - <<'PY'
+          import os
+          from datetime import datetime
+          from zoneinfo import ZoneInfo
+          tz = ZoneInfo(os.environ.get("TIMEZONE", "America/New_York"))
+          hour = datetime.now(tz).hour
+          # Only proceed when local time is the 7 AM hour. The "wrong" cron
+          # entry for the current DST state lands on 6 or 8 and is skipped.
+          run = hour == 7
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"run={'true' if run else 'false'}\n")
+          print(f"Local hour={hour}; run={run}")
+          PY
+
+      - uses: actions/setup-python@v5
+        if: steps.gate.outputs.run == 'true' || github.event_name == 'workflow_dispatch'
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        if: steps.gate.outputs.run == 'true' || github.event_name == 'workflow_dispatch'
+        run: pip install -r requirements.txt
+
+      - name: Send briefing
+        if: steps.gate.outputs.run == 'true' || github.event_name == 'workflow_dispatch'
+        run: python -m morning_agent.main
+
+      - name: Commit no-repeat state
+        if: steps.gate.outputs.run == 'true' || github.event_name == 'workflow_dispatch'
+        run: |
+          if [[ -n "$(git status --porcelain data/history.json)" ]]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add data/history.json
+            git commit -m "chore: update no-repeat history [skip ci]"
+            git push
+          else
+            echo "No history changes to commit."
+          fi
