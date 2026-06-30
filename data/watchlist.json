@@ -1,0 +1,4 @@
+{
+  "_comment": "Fallback candidates when no held positions map to a known sector (e.g. you hold only broad ETFs). Liquid, well-known names across sectors.",
+  "tickers": ["AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "JPM", "UNH", "XOM", "COST"]
+}

@@ -1,0 +1,20 @@
+name: Tests
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      # Pure-logic tests don't need the heavy runtime deps (robin_stocks,
+      # yfinance) — those are imported lazily inside their sections.
+      - run: pip install pytest requests python-dotenv
+      - run: python -m pytest -q

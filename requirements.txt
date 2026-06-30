@@ -1,0 +1,12 @@
+# HTTP for news/quotes APIs and ntfy delivery
+requests>=2.31.0
+
+# Load .env locally (no-op in CI where vars come from secrets)
+python-dotenv>=1.0.0
+
+# Robinhood (unofficial, unsupported — may break) + headless 2FA
+robin_stocks>=3.0.0
+pyotp>=2.9.0
+
+# Free market data for stock screening / suggestions
+yfinance>=0.2.40
