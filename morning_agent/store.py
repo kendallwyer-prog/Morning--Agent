@@ -35,16 +35,18 @@ class History:
 
     def __init__(self, window_days: int = DEFAULT_WINDOW_DAYS) -> None:
         self.window_days = window_days
-        self._data: dict[str, dict[str, str]] = {"quotes": {}, "songs": {}}
+        self._data: dict[str, dict[str, str]] = {}
         self._load()
 
     def _load(self) -> None:
         try:
             raw = json.loads(HISTORY_PATH.read_text())
-            for bucket in ("quotes", "songs"):
-                if isinstance(raw.get(bucket), dict):
-                    self._data[bucket] = raw[bucket]
-        except (FileNotFoundError, json.JSONDecodeError, OSError):
+            # Load every bucket present in the file (quotes, songs, greetings,
+            # kindness, …) so new rotation types persist across runs.
+            for bucket, entries in raw.items():
+                if isinstance(entries, dict):
+                    self._data[bucket] = dict(entries)
+        except (FileNotFoundError, json.JSONDecodeError, OSError, AttributeError):
             # Fresh start — empty history is fine.
             pass
         self._prune()

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import morning_agent.store as store
-from morning_agent.sections import news, quote, song, suggestions
+from morning_agent.sections import greeting, kindness, news, quote, song, suggestions
 from morning_agent.store import History
 
 
@@ -28,6 +28,23 @@ def test_quote_skips_recent(tmp_path, monkeypatch):
     first = quote.build(h).body
     second = quote.build(h).body
     assert first != second  # no immediate repeat
+
+
+# --- greeting ------------------------------------------------------------
+def test_greeting_no_repeat_and_format(tmp_path, monkeypatch):
+    h = _history(tmp_path, monkeypatch)
+    picks = [greeting.build(h) for _ in range(5)]
+    langs = {p.body.splitlines()[0] for p in picks}
+    assert len(langs) == 5  # five distinct languages
+    for p in picks:
+        assert "Hello —" in p.body and "Good morning —" in p.body
+
+
+# --- kindness ------------------------------------------------------------
+def test_kindness_no_repeat(tmp_path, monkeypatch):
+    h = _history(tmp_path, monkeypatch)
+    acts = {kindness.build(h).body for _ in range(5)}
+    assert len(acts) == 5  # five distinct acts
 
 
 # --- song ----------------------------------------------------------------

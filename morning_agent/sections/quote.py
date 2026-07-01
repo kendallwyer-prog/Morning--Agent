@@ -42,7 +42,8 @@ def _from_api(recent: set[str]) -> tuple[str, str, str] | None:
         try:
             resp = requests.get(
                 _QUOTABLE_URL,
-                params={"maxLength": 180},
+                # Philosophy-specific: Quotable tags (| = OR).
+                params={"maxLength": 200, "tags": "philosophy|wisdom"},
                 timeout=_TIMEOUT,
             )
             resp.raise_for_status()

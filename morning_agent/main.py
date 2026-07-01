@@ -19,7 +19,15 @@ from zoneinfo import ZoneInfo
 
 from . import config
 from .delivery import notify
-from .sections import SectionResult, news, quote, song, suggestions
+from .sections import (
+    SectionResult,
+    greeting,
+    kindness,
+    news,
+    quote,
+    song,
+    suggestions,
+)
 from .store import History
 
 
@@ -37,7 +45,9 @@ def build_digest() -> tuple[str, str, bool]:
     history = History()
 
     sections = [
+        _safe("Greeting", lambda: greeting.build(history)),
         _safe("Quote", lambda: quote.build(history)),
+        _safe("Kindness", lambda: kindness.build(history)),
         _safe("Song", lambda: song.build(history)),
         _safe("News", news.build),
         _safe("Ideas", lambda: suggestions.build(None)),
@@ -48,7 +58,8 @@ def build_digest() -> tuple[str, str, bool]:
     date_line = now.strftime("%A, %B %-d")
 
     emoji = {
-        "Quote": "💭", "Song": "🎵", "News": "📰", "Ideas": "💡",
+        "Greeting": "👋", "Quote": "💭", "Kindness": "🤝",
+        "Song": "🎵", "News": "📰", "Ideas": "💡",
     }
     parts: list[str] = []
     for s in sections:
