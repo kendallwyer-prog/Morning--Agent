@@ -33,7 +33,7 @@ def _quote_id(author: str, text: str) -> str:
 
 
 def _render(text: str, author: str) -> str:
-    return f"> {text}\n> — *{author}*"
+    return f"“{text}”\n— {author}"
 
 
 def _from_api(recent: set[str]) -> tuple[str, str, str] | None:

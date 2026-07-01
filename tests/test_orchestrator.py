@@ -27,15 +27,15 @@ def test_failing_section_degrades_but_digest_builds(tmp_path, monkeypatch):
 
     assert "Morning Briefing" in title
     assert all_ok is False
-    assert "Couldn't fetch news" in body
-    # Quote and song still rendered.
-    assert "### Quote" in body and "### Song" in body
+    assert "couldn't fetch" in body.lower()
+    # Quote and song still rendered (plain-text emoji headers).
+    assert "QUOTE" in body and "SONG" in body
     # Footer lists failures.
-    assert "section(s) failed" in body
+    assert "section(s) unavailable" in body
 
 
 def test_section_result_failed_helper():
     r = SectionResult.failed("News", "boom")
     assert r.ok is False
-    assert "couldn't fetch news" in r.body.lower()
+    assert "couldn't fetch" in r.body.lower()
     assert "boom" in r.body

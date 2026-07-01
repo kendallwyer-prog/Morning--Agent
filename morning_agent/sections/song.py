@@ -25,7 +25,7 @@ def _song_id(artist: str, track: str) -> str:
 
 
 def _render(song: dict) -> str:
-    return f"🎵 **{song['track']}** — {song['artist']}\n_{song['reason']}_"
+    return f"{song['track']} — {song['artist']}\n{song['reason']}"
 
 
 def build(history=None) -> SectionResult:

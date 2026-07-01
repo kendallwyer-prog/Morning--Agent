@@ -81,7 +81,7 @@ def test_news_build_groups_by_source_and_analyses(monkeypatch):
     )
     res = news.build()
     assert res.ok
-    assert "**AJ**" in res.body and "**BBC**" in res.body
+    assert "▸ AJ" in res.body and "▸ BBC" in res.body
     assert "Gaza ceasefire talks" in res.body
     assert "📊 Compare" in res.body
 

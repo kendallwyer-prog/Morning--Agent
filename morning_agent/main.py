@@ -52,16 +52,22 @@ def build_digest() -> tuple[str, str, bool]:
     now = datetime.now(tz)
     date_line = now.strftime("%A, %B %-d")
 
+    emoji = {
+        "Quote": "💭", "Song": "🎵", "News": "📰",
+        "Portfolio": "💼", "Ideas": "💡",
+    }
     parts: list[str] = []
     for s in sections:
-        parts.append(f"### {s.title}\n{s.body}")
-    body = "\n\n".join(parts)
+        head = f"{emoji.get(s.title, '•')}  {s.title.upper()}"
+        parts.append(f"{head}\n{s.body}")
+    body = "\n\n\n".join(parts)
 
     failed = [s.title for s in sections if not s.ok]
     if failed:
-        body += f"\n\n---\n_Note: {len(failed)} section(s) failed: {', '.join(failed)}._"
+        body += "\n\n" + "─" * 20
+        body += f"\n⚠️ {len(failed)} section(s) unavailable: {', '.join(failed)}"
 
-    title = f"☀️ Morning Briefing — {date_line}"
+    title = f"☀️ Morning Briefing · {date_line}"
 
     # Persist no-repeat state now that the digest is assembled.
     try:

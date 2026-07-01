@@ -31,8 +31,8 @@ def send(title: str, body: str, *, priority: int = 3, tags: list[str] | None = N
     headers = {
         "Title": title.encode("utf-8"),
         "Priority": str(priority),
-        # Markdown rendering in the ntfy iOS app.
-        "Markdown": "yes",
+        # Sent as plain text: notification previews don't render markdown, so we
+        # style the body with emoji/spacing instead of markdown syntax.
     }
     if tags:
         headers["Tags"] = ",".join(tags)

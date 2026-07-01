@@ -17,4 +17,4 @@ class SectionResult:
 
     @classmethod
     def failed(cls, title: str, reason: str) -> "SectionResult":
-        return cls(title=title, body=f"_⚠️ Couldn't fetch {title.lower()}: {reason}_", ok=False)
+        return cls(title=title, body=f"(couldn't fetch — {reason})", ok=False)

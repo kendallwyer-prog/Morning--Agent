@@ -116,16 +116,14 @@ def _analysis(by_source: dict[str, list[str]]) -> str:
     lines: list[str] = []
     if shared:
         pretty = ", ".join(f"{t} ({n}/{len(sources)})" for t, n in shared)
-        lines.append(f"**Shared themes:** {pretty}.")
+        lines.append(f"Shared themes: {pretty}")
     else:
-        lines.append("**Shared themes:** none obvious — the outlets diverge today.")
+        lines.append("Shared themes: none obvious — the outlets diverge today")
 
-    # Each outlet's lead story.
-    leads = []
+    # Each outlet's lead story, one per line.
+    lines.append("Leads:")
     for src in sources:
-        lead = by_source[src][0]
-        leads.append(f"_{src}:_ {lead}")
-    lines.append("**Leads —** " + " · ".join(leads))
+        lines.append(f"  • {src}: {by_source[src][0]}")
 
     # Unique angle per source: a term only it uses (most distinctive).
     uniques = []
@@ -135,7 +133,7 @@ def _analysis(by_source: dict[str, list[str]]) -> str:
             only.sort()
             uniques.append(f"{src} → {only[0]}")
     if uniques:
-        lines.append("**Distinct angles:** " + "; ".join(uniques) + ".")
+        lines.append("Distinct angles: " + "; ".join(uniques))
 
     return "\n".join(lines)
 
@@ -166,18 +164,18 @@ def build() -> SectionResult:
     blocks: list[str] = []
     for name, titles in by_source.items():
         if titles:
-            bullets = "\n".join(f"• {t}" for t in titles)
-            blocks.append(f"**{name}**\n{bullets}")
+            bullets = "\n".join(f"  • {t}" for t in titles)
+            blocks.append(f"▸ {name}\n{bullets}")
         else:
-            blocks.append(f"**{name}**\n_unavailable_")
+            blocks.append(f"▸ {name}\n  (unavailable)")
 
     body = "\n\n".join(blocks)
 
     analysis = _analysis(by_source)
     if analysis:
-        body += "\n\n**📊 Compare**\n" + analysis
+        body += "\n\n📊 Compare\n" + analysis
 
     if errors:
-        body += f"\n\n_({len(errors)} source(s) unavailable: {', '.join(errors)})_"
+        body += f"\n\n({len(errors)} source(s) unavailable: {', '.join(errors)})"
 
     return SectionResult(title="News", body=body)

@@ -103,7 +103,7 @@ def _gather() -> tuple[str, list[dict]]:
 
     lines: list[str] = []
     if equity is not None:
-        lines.append(f"**Total: {_money(equity)}**")
+        lines.append(f"Total: {_money(equity)}")
         if prev_close:
             day_change = equity - prev_close
             day_pct = (day_change / prev_close * 100) if prev_close else 0.0
@@ -114,7 +114,7 @@ def _gather() -> tuple[str, list[dict]]:
                 f"({sign}{abs(day_pct):.2f}%)"
             )
     else:
-        lines.append("_Total value unavailable._")
+        lines.append("Total value unavailable.")
 
     if positions:
         lines.append("")
@@ -122,11 +122,11 @@ def _gather() -> tuple[str, list[dict]]:
             sign = "+" if pct >= 0 else ""
             qty_str = f"{qty:g}"
             lines.append(
-                f"• **{symbol}** {qty_str} sh — {_money(pos_equity)} "
-                f"({sign}{pct:.1f}% total)"
+                f"  • {symbol}  {qty_str} sh  {_money(pos_equity)} "
+                f"({sign}{pct:.1f}%)"
             )
     else:
-        lines.append("_No open positions found._")
+        lines.append("No open positions found.")
 
     return "\n".join(lines), holdings
 

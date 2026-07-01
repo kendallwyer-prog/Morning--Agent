@@ -29,7 +29,7 @@ _PEERS = _DATA / "sector_peers.json"
 _WATCHLIST = _DATA / "watchlist.json"
 _MAX_IDEAS = 3
 _MAX_CANDIDATES = 20  # cap network work
-_DISCLAIMER = "_Not financial advice — for informational purposes only._"
+_DISCLAIMER = "Not financial advice — for informational purposes only."
 
 
 def _candidate_universe(holdings) -> tuple[list[str], dict[str, str]]:
@@ -117,8 +117,9 @@ def _render(ranked: list[tuple[str, dict, str]]) -> str:
         mom_sign = "+" if m["mom5"] >= 0 else ""
         sma_sign = "+" if m["vs_sma20"] >= 0 else ""
         lines.append(
-            f"• **{ticker}** — {mom_sign}{m['mom5']:.1f}% over 5 days, "
-            f"{sma_sign}{m['vs_sma20']:.1f}% vs 20-day avg. _{ctx}._"
+            f"  • {ticker}: {mom_sign}{m['mom5']:.1f}% over 5 days, "
+            f"{sma_sign}{m['vs_sma20']:.1f}% vs 20-day avg\n"
+            f"    ({ctx})"
         )
     lines.append("")
     lines.append(_DISCLAIMER)
