@@ -1,0 +1,10 @@
+{
+  "_comment": "Per-source RSS feeds, no API key needed. QQ.com skipped (no working free RSS). Swap any {name,url} to taste. per_source = headlines shown per outlet.",
+  "per_source": 3,
+  "sources": [
+    {"name": "Al Jazeera", "url": "https://www.aljazeera.com/xml/rss/all.xml"},
+    {"name": "The Economist", "url": "https://www.economist.com/latest/rss.xml"},
+    {"name": "BBC UK", "url": "https://feeds.bbci.co.uk/news/uk/rss.xml"},
+    {"name": "WSJ", "url": "https://feeds.a.dj.com/rss/RSSWorldNews.xml"}
+  ]
+}

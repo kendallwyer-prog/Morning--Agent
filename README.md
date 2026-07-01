@@ -5,7 +5,8 @@ iPhone/iPad every morning with:
 
 1. **Quote** — inspiring/interesting, no repeats within 30 days
 2. **Song** — artist + track with a one-line reason
-3. **News** — top 3–4 headlines across world / business / technology
+3. **News** — a few headlines each from Al Jazeera, The Economist, BBC UK, and
+   WSJ (free RSS, no API key), plus a comparative analysis of the four
 4. **Portfolio** — Robinhood total value, day's gain/loss ($ and %), per-position
 5. **Ideas** — 1–3 stock suggestions from a transparent momentum screen
    *(not financial advice — for informational purposes only)*
@@ -26,7 +27,7 @@ python -m morning_agent.main
         │  builds each section in its own try/except
         ├── quote      (Quotable API → curated fallback, 30-day no-repeat)
         ├── song       (curated rotating list, 30-day no-repeat)
-        ├── news       (GNews top-headlines per category)
+        ├── news       (per-source RSS + comparative analysis, no API key)
         ├── portfolio  (robin_stocks + TOTP 2FA)   ← fragile, degrades gracefully
         └── ideas      (yfinance momentum screen within your sectors)
         │
@@ -89,12 +90,11 @@ python -m morning_agent.main
 > Self-hosting? Set `NTFY_SERVER` to your server URL; otherwise it defaults to
 > the public `https://ntfy.sh`.
 
-### GNews (news) — required for the news section
-1. Sign up free at <https://gnews.io>.
-2. Copy your API key from the dashboard.
-3. Set `GNEWS_API_KEY`. Free tier = 100 requests/day; we use one per category
-   (default 3/day). Tune categories with `NEWS_CATEGORIES`
-   (e.g. `world,business,technology,science`).
+### News — no key needed
+Pulls free RSS feeds from Al Jazeera, The Economist, BBC UK, and WSJ, then adds a
+transparent comparative analysis (shared themes, each outlet's lead story, unique
+angles). Edit `data/news_feeds.json` to change outlets or how many headlines per
+source (`per_source`). No signup or API key required.
 
 ### Quotes — no key needed
 Uses the free [Quotable](https://github.com/lukePeavey/quotable) API and falls
@@ -136,9 +136,7 @@ Add each value you're using:
 |---|---|---|
 | `NTFY_TOPIC` | ✅ | your ntfy topic |
 | `NTFY_SERVER` | optional | only if self-hosting ntfy |
-| `GNEWS_API_KEY` | for news | from gnews.io |
-| `NEWS_CATEGORIES` | optional | default `world,business,technology` |
-| `NEWS_COUNTRY` / `NEWS_LANG` | optional | default `us` / `en` |
+| `GNEWS_API_KEY` | optional | news works key-free via RSS; set this only to use GNews instead |
 | `RH_USERNAME` / `RH_PASSWORD` | for portfolio | |
 | `RH_MFA_SECRET` | for portfolio | TOTP base32 secret |
 | `TIMEZONE` | optional | default `America/New_York` |

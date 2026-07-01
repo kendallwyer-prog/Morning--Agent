@@ -38,52 +38,70 @@ def test_song_no_repeat_across_picks(tmp_path, monkeypatch):
 
 
 # --- news ----------------------------------------------------------------
-def test_news_interleaves_dedupes_and_caps(monkeypatch):
-    monkeypatch.setenv("GNEWS_API_KEY", "x")
-    monkeypatch.setattr(news.config, "NEWS_CATEGORIES", ["world", "business", "technology"])
+_RSS_SAMPLE = b"""<?xml version="1.0"?>
+<rss version="2.0"><channel><title>Feed Title</title>
+  <item><title>Feed Title</title></item>
+  <item><title>Real headline one</title></item>
+  <item><title>Some story - Reuters</title></item>
+  <item><title>Extra story three</title></item>
+</channel></rss>"""
 
-    def fake_fetch(api_key, category):
-        return {
-            "world": [
-                {"title": "W1", "source": {"name": "R"}},
-                {"title": "Shared", "source": {"name": "A"}},
-            ],
-            "business": [
-                {"title": "B1", "source": {"name": "B"}},
-                {"title": "Shared", "source": {"name": "Dup"}},
-            ],
-            "technology": [
-                {"title": "T1", "source": {"name": "V"}},
-                {"title": "T2", "source": {"name": "TC"}},
-            ],
-        }.get(category, [])
 
-    monkeypatch.setattr(news, "_fetch_category", fake_fetch)
+def test_news_parse_titles_cleans_and_limits():
+    titles = news._parse_titles(_RSS_SAMPLE, limit=2)
+    # Channel-title boilerplate item skipped; " - Publisher" suffix trimmed.
+    assert titles == ["Real headline one", "Some story"]
+
+
+def test_news_analysis_finds_shared_leads_and_unique():
+    by_source = {
+        "AJ": ["Gaza ceasefire talks resume", "Bengal school lunch debate"],
+        "BBC": ["Gaza aid convoy blocked", "Starmer defence spending row"],
+    }
+    text = news._analysis(by_source)
+    assert "gaza" in text.lower()          # shared theme across both
+    assert "Shared themes" in text
+    assert "Leads" in text
+    # each source's lead headline appears
+    assert "Gaza ceasefire talks resume" in text
+    assert "Gaza aid convoy blocked" in text
+
+
+def test_news_build_groups_by_source_and_analyses(monkeypatch):
+    monkeypatch.setattr(
+        news, "_fetch_source",
+        lambda url, limit: {
+            "u1": ["Gaza ceasefire talks", "Local election result"],
+            "u2": ["Gaza aid blocked", "Market rally continues"],
+        }[url],
+    )
+    monkeypatch.setattr(
+        news.Path, "read_text",
+        lambda self: '{"per_source":2,"sources":[{"name":"AJ","url":"u1"},{"name":"BBC","url":"u2"}]}',
+    )
     res = news.build()
     assert res.ok
-    lines = [ln for ln in res.body.splitlines() if ln.startswith("•")]
-    assert len(lines) == 4  # capped
-    assert sum("Shared" in ln for ln in lines) == 1  # deduped
-    # first three span the three categories (round-robin)
-    assert lines[0].startswith("• W1")
-    assert lines[1].startswith("• B1")
-    assert lines[2].startswith("• T1")
+    assert "**AJ**" in res.body and "**BBC**" in res.body
+    assert "Gaza ceasefire talks" in res.body
+    assert "📊 Compare" in res.body
 
 
-def test_news_tolerates_partial_category_failure(monkeypatch):
-    monkeypatch.setenv("GNEWS_API_KEY", "x")
-    monkeypatch.setattr(news.config, "NEWS_CATEGORIES", ["world", "business"])
+def test_news_tolerates_source_failure(monkeypatch):
     import requests
 
-    def fake_fetch(api_key, category):
-        if category == "business":
+    def fake_fetch(url, limit):
+        if url == "bad":
             raise requests.RequestException("boom")
-        return [{"title": "W1", "source": {"name": "R"}}]
+        return ["Working headline"]
 
-    monkeypatch.setattr(news, "_fetch_category", fake_fetch)
+    monkeypatch.setattr(news, "_fetch_source", fake_fetch)
+    monkeypatch.setattr(
+        news.Path, "read_text",
+        lambda self: '{"per_source":2,"sources":[{"name":"Good","url":"ok"},{"name":"Bad","url":"bad"}]}',
+    )
     res = news.build()
     assert res.ok
-    assert "W1" in res.body
+    assert "Working headline" in res.body
     assert "unavailable" in res.body
 
 
