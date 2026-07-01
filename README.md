@@ -7,8 +7,7 @@ iPhone/iPad every morning with:
 2. **Song** — artist + track with a one-line reason
 3. **News** — a few headlines each from Al Jazeera, The Economist, BBC UK, and
    WSJ (free RSS, no API key), plus a comparative analysis of the four
-4. **Portfolio** — Robinhood total value, day's gain/loss ($ and %), per-position
-5. **Ideas** — 1–3 stock suggestions from a transparent momentum screen
+4. **Ideas** — 1–3 stock suggestions from a transparent momentum screen
    *(not financial advice — for informational purposes only)*
 
 It runs as a free **scheduled GitHub Action**, delivers via **ntfy.sh**, and is
@@ -28,8 +27,7 @@ python -m morning_agent.main
         ├── quote      (Quotable API → curated fallback, 30-day no-repeat)
         ├── song       (curated rotating list, 30-day no-repeat)
         ├── news       (per-source RSS + comparative analysis, no API key)
-        ├── portfolio  (robin_stocks + TOTP 2FA)   ← fragile, degrades gracefully
-        └── ideas      (yfinance momentum screen within your sectors)
+        └── ideas      (yfinance momentum screen, no API key)
         │
         ▼
 POST https://ntfy.sh/<your-topic>
@@ -52,7 +50,7 @@ morning_agent/
   store.py             JSON no-repeat history (30-day rolling window)
   delivery/notify.py   ntfy.sh push
   sections/
-    quote.py  song.py  news.py  portfolio.py  suggestions.py
+    quote.py  song.py  news.py  suggestions.py
 data/
   quotes.json  songs.json            curated content
   sector_peers.json  watchlist.json  stock-screen universe
@@ -100,25 +98,11 @@ source (`per_source`). No signup or API key required.
 Uses the free [Quotable](https://github.com/lukePeavey/quotable) API and falls
 back to `data/quotes.json` automatically.
 
-### Robinhood (portfolio) — optional, fragile
-> ⚠️ `robin_stocks` is **unofficial and unsupported**. It can break at any time,
-> and logins from datacenter IPs (like GitHub's) are often challenged or blocked.
-> If it fails, the digest still sends with a "couldn't fetch portfolio" note.
-
-1. Set `RH_USERNAME` and `RH_PASSWORD`.
-2. **Strongly recommended:** enable **authenticator-app 2FA** in the Robinhood
-   app (Account → Security → Two-Factor → Authenticator App). When it shows the
-   QR code, choose "**Can't scan?**" to reveal the **base32 secret** and set it
-   as `RH_MFA_SECRET`. The agent uses `pyotp` to generate the 6-digit code
-   headlessly, so no manual entry is needed.
-   - Without this secret, a login that demands a code can't complete on a
-     headless runner — the section just degrades gracefully.
-3. If GitHub's IP gets persistently blocked, see
-   [Running the portfolio from your phone](#optional-run-the-portfolio-from-your-phone).
-
 ### Stock ideas — no key needed
-Uses [`yfinance`](https://github.com/ranaroussi/yfinance) for free price data.
-Edit `data/sector_peers.json` / `data/watchlist.json` to customize the universe.
+Uses [`yfinance`](https://github.com/ranaroussi/yfinance) for free price data to
+run a transparent momentum screen (5-day change, % vs 20-day average) over a
+watchlist. Edit `data/watchlist.json` (and `data/sector_peers.json`) to customize
+the universe.
 
 ---
 
@@ -137,8 +121,6 @@ Add each value you're using:
 | `NTFY_TOPIC` | ✅ | your ntfy topic |
 | `NTFY_SERVER` | optional | only if self-hosting ntfy |
 | `GNEWS_API_KEY` | optional | news works key-free via RSS; set this only to use GNews instead |
-| `RH_USERNAME` / `RH_PASSWORD` | for portfolio | |
-| `RH_MFA_SECRET` | for portfolio | TOTP base32 secret |
 | `TIMEZONE` | optional | default `America/New_York` |
 
 ### Schedule
@@ -180,14 +162,6 @@ If you'd rather open a Shortcut to read/save the latest briefing:
 5. **Automation** tab → **+ → Time of Day → 7:05 AM → Daily → Run Immediately**,
    then run this shortcut. (Personal automations can run without prompting.)
 
-### C) <a id="optional-run-the-portfolio-from-your-phone"></a>Optional: run the portfolio from your phone (trusted IP)
-If Robinhood blocks GitHub's IP, fetch the portfolio from your phone instead:
-- Keep sections 1–3 + 5 on GitHub Actions.
-- Build a separate Shortcut that hits Robinhood (or a tiny endpoint you run) from
-  your home network and appends the result. This avoids datacenter-IP blocks.
-- This is an advanced, optional path; the cloud version degrades gracefully
-  without it.
-
 ---
 
 ## Reliability & design notes
@@ -199,11 +173,11 @@ If Robinhood blocks GitHub's IP, fetch the portfolio from your phone instead:
 - **No-repeat.** Quotes and songs are tracked by a stable hash for 30 days in
   `data/history.json`, committed back by the Action.
 - **Transparent ideas.** Stock suggestions use plain momentum math (5-day change,
-  vs 20-day SMA) within sectors you already hold. The rationale shows the actual
-  numbers — no predictions, no black box.
+  vs 20-day SMA) over a watchlist. The rationale shows the actual numbers — no
+  predictions, no black box.
 - **Secrets.** Everything is via env vars / GitHub Secrets. `.env` is gitignored;
   `.env.example` is the template. Nothing is hardcoded.
 
 ## Disclaimer
 The "Ideas" section is **not financial advice** and is for informational purposes
-only. Robinhood integration is unofficial and may break without notice.
+only.

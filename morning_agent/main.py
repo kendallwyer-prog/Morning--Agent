@@ -19,7 +19,7 @@ from zoneinfo import ZoneInfo
 
 from . import config
 from .delivery import notify
-from .sections import SectionResult, news, portfolio, quote, song, suggestions
+from .sections import SectionResult, news, quote, song, suggestions
 from .store import History
 
 
@@ -36,16 +36,11 @@ def build_digest() -> tuple[str, str, bool]:
     """Return (title, markdown_body, all_ok)."""
     history = History()
 
-    # Portfolio is fetched first so suggestions can reference held positions.
-    portfolio_result = _safe("Portfolio", portfolio.build)
-    holdings = getattr(portfolio_result, "holdings", None)
-
     sections = [
         _safe("Quote", lambda: quote.build(history)),
         _safe("Song", lambda: song.build(history)),
         _safe("News", news.build),
-        portfolio_result,
-        _safe("Ideas", lambda: suggestions.build(holdings)),
+        _safe("Ideas", lambda: suggestions.build(None)),
     ]
 
     tz = ZoneInfo(config.TIMEZONE)
@@ -53,8 +48,7 @@ def build_digest() -> tuple[str, str, bool]:
     date_line = now.strftime("%A, %B %-d")
 
     emoji = {
-        "Quote": "💭", "Song": "🎵", "News": "📰",
-        "Portfolio": "💼", "Ideas": "💡",
+        "Quote": "💭", "Song": "🎵", "News": "📰", "Ideas": "💡",
     }
     parts: list[str] = []
     for s in sections:

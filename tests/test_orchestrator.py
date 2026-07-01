@@ -16,12 +16,11 @@ def test_failing_section_degrades_but_digest_builds(tmp_path, monkeypatch):
     )
     # Avoid network in quote; force local fallback.
     monkeypatch.setattr(main.quote, "_from_api", lambda recent: None)
-    # Avoid network in the other sections; make them fail fast, not hang.
+    # Avoid network in ideas; make it fail fast, not hang.
     monkeypatch.setattr(
         main.suggestions, "build",
         lambda holdings=None: (_ for _ in ()).throw(RuntimeError("offline")),
     )
-    # Portfolio needs creds -> lets it fail naturally (fast).
 
     title, body, all_ok = main.build_digest()
 
