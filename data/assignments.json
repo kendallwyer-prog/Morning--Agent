@@ -1,0 +1,47 @@
+[
+  {
+    "title": "Reading Response: Foucault",
+    "course": "PHIL110",
+    "type": "reading",
+    "due": "2026-09-02",
+    "notes": "",
+    "done": false,
+    "id": "b3673da602"
+  },
+  {
+    "title": "Problem Set 3",
+    "course": "MATH140",
+    "type": "homework",
+    "due": "2026-09-04",
+    "notes": "",
+    "done": false,
+    "id": "93f3aeab6c"
+  },
+  {
+    "title": "Bio Midterm",
+    "course": "BIO201",
+    "type": "exam",
+    "due": "2026-09-15",
+    "notes": "Ch. 1-7, no notes allowed",
+    "done": false,
+    "id": "70500bcb66"
+  },
+  {
+    "title": "Ethics Term Paper",
+    "course": "PHIL110",
+    "type": "paper",
+    "due": "2026-09-22",
+    "notes": "2500 words",
+    "done": false,
+    "id": "24d2c6e1c4"
+  },
+  {
+    "title": "Lab Report 2",
+    "course": "BIO201",
+    "type": "project",
+    "due": "2026-09-30",
+    "notes": "",
+    "done": false,
+    "id": "054c856a54"
+  }
+]

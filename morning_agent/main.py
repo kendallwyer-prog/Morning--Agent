@@ -19,7 +19,7 @@ from zoneinfo import ZoneInfo
 
 from . import config
 from .delivery import notify
-from .sections import SectionResult, news, portfolio, quote, song, suggestions
+from .sections import SectionResult, assignments, news, portfolio, quote, song, suggestions
 from .store import History
 
 
@@ -42,6 +42,7 @@ def build_digest() -> tuple[str, str, bool]:
 
     sections = [
         _safe("Quote", lambda: quote.build(history)),
+        _safe("Assignments", assignments.build),
         _safe("Song", lambda: song.build(history)),
         _safe("News", news.build),
         portfolio_result,

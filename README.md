@@ -4,10 +4,11 @@ A daily "morning briefing" agent that sends **one push notification** to your
 iPhone/iPad every morning with:
 
 1. **Quote** — inspiring/interesting, no repeats within 30 days
-2. **Song** — artist + track with a one-line reason
-3. **News** — top 3–4 headlines across world / business / technology
-4. **Portfolio** — Robinhood total value, day's gain/loss ($ and %), per-position
-5. **Ideas** — 1–3 stock suggestions from a transparent momentum screen
+2. **Assignments** — upcoming academic deadlines, soonest first, with urgency flags
+3. **Song** — artist + track with a one-line reason
+4. **News** — top 3–4 headlines across world / business / technology
+5. **Portfolio** — Robinhood total value, day's gain/loss ($ and %), per-position
+6. **Ideas** — 1–3 stock suggestions from a transparent momentum screen
    *(not financial advice — for informational purposes only)*
 
 It runs as a free **scheduled GitHub Action**, delivers via **ntfy.sh**, and is
@@ -24,11 +25,12 @@ GitHub Action (daily ~7am ET)
         ▼
 python -m morning_agent.main
         │  builds each section in its own try/except
-        ├── quote      (Quotable API → curated fallback, 30-day no-repeat)
-        ├── song       (curated rotating list, 30-day no-repeat)
-        ├── news       (GNews top-headlines per category)
-        ├── portfolio  (robin_stocks + TOTP 2FA)   ← fragile, degrades gracefully
-        └── ideas      (yfinance momentum screen within your sectors)
+        ├── quote       (Quotable API → curated fallback, 30-day no-repeat)
+        ├── assignments (local data/assignments.json, soonest deadlines first)
+        ├── song        (curated rotating list, 30-day no-repeat)
+        ├── news        (GNews top-headlines per category)
+        ├── portfolio   (robin_stocks + TOTP 2FA)   ← fragile, degrades gracefully
+        └── ideas       (yfinance momentum screen within your sectors)
         │
         ▼
 POST https://ntfy.sh/<your-topic>
@@ -51,9 +53,10 @@ morning_agent/
   store.py             JSON no-repeat history (30-day rolling window)
   delivery/notify.py   ntfy.sh push
   sections/
-    quote.py  song.py  news.py  portfolio.py  suggestions.py
+    quote.py  assignments.py  song.py  news.py  portfolio.py  suggestions.py
 data/
   quotes.json  songs.json            curated content
+  assignments.json                   academic deadlines you track
   sector_peers.json  watchlist.json  stock-screen universe
   history.json                       no-repeat state (committed by CI)
 .github/workflows/briefing.yml       daily schedule
@@ -100,6 +103,30 @@ python -m morning_agent.main
 Uses the free [Quotable](https://github.com/lukePeavey/quotable) API and falls
 back to `data/quotes.json` automatically.
 
+### Assignments — no key needed
+Tracked locally in `data/assignments.json`. Each entry is:
+
+```json
+{
+  "title": "Problem Set 3",
+  "course": "MATH140",
+  "type": "homework",
+  "due": "2026-09-04",
+  "notes": "",
+  "done": false,
+  "id": "93f3aeab6c"
+}
+```
+
+The section lists outstanding items (`done: false`) soonest-first, computing
+"today"/"tomorrow"/days-left in your `TIMEZONE`. **Overdue items are always
+shown** (never trimmed); the number of *upcoming* items is capped by
+`ASSIGNMENTS_MAX` (default 6). Recognized `type` values get an emoji
+(reading, homework, exam, quiz, paper, project, lab, presentation, discussion);
+anything else falls back to a neutral marker. Malformed entries are skipped
+rather than crashing the digest. When nothing is outstanding you get a
+"caught up" note. Edit the JSON to add/complete assignments.
+
 ### Robinhood (portfolio) — optional, fragile
 > ⚠️ `robin_stocks` is **unofficial and unsupported**. It can break at any time,
 > and logins from datacenter IPs (like GitHub's) are often challenged or blocked.
@@ -139,6 +166,7 @@ Add each value you're using:
 | `GNEWS_API_KEY` | for news | from gnews.io |
 | `NEWS_CATEGORIES` | optional | default `world,business,technology` |
 | `NEWS_COUNTRY` / `NEWS_LANG` | optional | default `us` / `en` |
+| `ASSIGNMENTS_MAX` | optional | max upcoming items listed, default `6` |
 | `RH_USERNAME` / `RH_PASSWORD` | for portfolio | |
 | `RH_MFA_SECRET` | for portfolio | TOTP base32 secret |
 | `TIMEZONE` | optional | default `America/New_York` |

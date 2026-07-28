@@ -1,8 +1,10 @@
 """Pure-logic tests for the content sections (no network)."""
 from __future__ import annotations
 
+import json
+
 import morning_agent.store as store
-from morning_agent.sections import news, quote, song, suggestions
+from morning_agent.sections import assignments, news, quote, song, suggestions
 from morning_agent.store import History
 
 
@@ -114,3 +116,71 @@ def test_suggestions_metrics_and_ranking():
     assert metrics["DOWN"]["mom5"] < 0
     ranked = suggestions.rank(metrics, {"UP": "ctx", "DOWN": "ctx"})
     assert ranked[0][0] == "UP"  # higher momentum first
+
+
+# --- assignments ---------------------------------------------------------
+import datetime as _dt  # noqa: E402
+
+
+def _assignments(tmp_path, monkeypatch, items, today="2026-09-01"):
+    path = tmp_path / "assignments.json"
+    path.write_text(json.dumps(items))
+    monkeypatch.setattr(assignments, "_DATA", path)
+    monkeypatch.setattr(assignments, "_today", lambda: _dt.date.fromisoformat(today))
+
+
+def _item(**kw):
+    base = {"title": "T", "course": "C", "type": "homework", "due": "2026-09-10",
+            "notes": "", "done": False, "id": "x"}
+    base.update(kw)
+    return base
+
+
+def test_assignments_sorted_and_urgency(tmp_path, monkeypatch):
+    _assignments(tmp_path, monkeypatch, [
+        _item(title="Later", due="2026-09-20"),
+        _item(title="Today", due="2026-09-01"),
+        _item(title="Soon", due="2026-09-03"),
+    ], today="2026-09-01")
+    res = assignments.build()
+    assert res.ok
+    lines = [ln for ln in res.body.splitlines() if "**" in ln]
+    # Soonest first.
+    assert "Today" in lines[0] and "due today" in lines[0]
+    assert "Soon" in lines[1]
+    assert "Later" in lines[2]
+
+
+def test_assignments_skips_done_and_shows_caught_up(tmp_path, monkeypatch):
+    _assignments(tmp_path, monkeypatch, [
+        _item(title="Done one", done=True),
+    ])
+    res = assignments.build()
+    assert res.ok
+    assert "caught up" in res.body.lower()
+    assert "Done one" not in res.body
+
+
+def test_assignments_overdue_always_shown_and_cap(tmp_path, monkeypatch):
+    monkeypatch.setattr(assignments.config, "ASSIGNMENTS_MAX", 1)
+    _assignments(tmp_path, monkeypatch, [
+        _item(title="Overdue", due="2026-08-25"),
+        _item(title="Up1", due="2026-09-05"),
+        _item(title="Up2", due="2026-09-06"),
+    ], today="2026-09-01")
+    res = assignments.build()
+    body = res.body
+    assert "Overdue" in body and "overdue by" in body  # overdue never trimmed
+    assert "Up1" in body  # first upcoming within cap
+    assert "Up2" not in body  # trimmed by cap
+    assert "+1 more" in body
+
+
+def test_assignments_skips_malformed_due(tmp_path, monkeypatch):
+    _assignments(tmp_path, monkeypatch, [
+        _item(title="Bad", due="not-a-date"),
+        _item(title="Good", due="2026-09-05"),
+    ], today="2026-09-01")
+    res = assignments.build()
+    assert "Good" in res.body
+    assert "Bad" not in res.body

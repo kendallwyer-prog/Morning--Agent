@@ -51,5 +51,21 @@ NEWS_CATEGORIES = get_list("NEWS_CATEGORIES", ["world", "business", "technology"
 NEWS_COUNTRY = get("NEWS_COUNTRY", "us")
 NEWS_LANG = get("NEWS_LANG", "en")
 
+# --- Assignments ----------------------------------------------------------
+def get_int(name: str, default: int) -> int:
+    """Parse an integer env var, falling back to ``default`` on any problem."""
+    raw = get(name)
+    if not raw:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
+
+
+# How many upcoming (non-overdue) assignments to list. Overdue items are always
+# shown in full regardless of this cap.
+ASSIGNMENTS_MAX = get_int("ASSIGNMENTS_MAX", 6)
+
 # --- Misc -----------------------------------------------------------------
 TIMEZONE = get("TIMEZONE", "America/New_York")
