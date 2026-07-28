@@ -8,6 +8,12 @@
 .tokens/
 robinhood.pickle
 
+# Geofence SQLite database (data is local-only, never committed)
+data/*.db
+data/*.db-wal
+data/*.db-shm
+geofence.env
+
 # Python
 __pycache__/
 *.py[cod]
