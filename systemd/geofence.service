@@ -1,0 +1,27 @@
+[Unit]
+Description=Geofence event ingestion server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# --- Adjust these three to your box -----------------------------------------
+User=pi
+WorkingDirectory=/home/pi/Morning--Agent
+# The shared secret (GEOFENCE_SECRET=...) lives here, NOT in git. chmod 600 it.
+EnvironmentFile=/home/pi/Morning--Agent/geofence.env
+# Use the venv's python if you made one, e.g. /home/pi/Morning--Agent/.venv/bin/python
+ExecStart=/usr/bin/python3 -m geofence serve --host 0.0.0.0 --port 8000
+
+# Survive reboots and crashes.
+Restart=always
+RestartSec=5
+
+# Light hardening (this is a public endpoint).
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=false
+
+[Install]
+WantedBy=multi-user.target

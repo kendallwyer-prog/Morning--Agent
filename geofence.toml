@@ -1,0 +1,73 @@
+# Geofence ingestion config. NOTHING secret lives here -- the shared secret
+# comes from the GEOFENCE_SECRET environment variable (see systemd/geofence.env.example).
+
+timezone = "America/New_York"   # Princeton is Eastern; DST handled via zoneinfo
+db_path  = "data/geofence.db"
+
+[thresholds]
+# Problem #1 (boundary flapping): discard an exit within this many seconds of an
+# enter for the SAME region. NOT a magic number -- tune it here.
+flap_window_sec = 90
+
+# Problem #2 (broken pairs): an exit whose next arrival is further away than this
+# (in seconds) has no plausible match -> the segment is `incomplete` and excluded
+# from stats. 1800s = 30 min is generous for on-campus travel.
+max_transit_sec = 1800
+
+# `doctor` warns (and exits non-zero) if no event has arrived in this many hours.
+silence_threshold_hours = 6
+
+# --- Regions -----------------------------------------------------------------
+# lat/lon/radius are documentation for now (Phase 1 matches on the region NAME
+# the client sends, not on coordinates). Coordinates below are APPROXIMATE --
+# replace them with the actual centers you set on your phone. `aliases` lets the
+# normalizer map whatever label a client sends (e.g. OwnTracks "Henry Hall")
+# onto the canonical id.
+#
+# calibration_offset_sec: Problem #3. iOS fires "leave" LATE, so the recorded
+# exit is this many seconds after you actually left. Start at 0; run
+# `python -m geofence calibrate estimate` after week one and paste the numbers.
+
+[regions.henry_hall]
+lat = 40.3448
+lon = -74.6558
+radius_m = 100
+calibration_offset_sec = 0
+aliases = ["Henry Hall", "henry", "dorm"]
+
+[regions.denunzio]
+lat = 40.3460
+lon = -74.6520
+radius_m = 100
+calibration_offset_sec = 0
+aliases = ["DeNunzio", "DeNunzio Pool", "pool"]
+
+[regions.prospect_club]
+lat = 40.3479
+lon = -74.6540
+radius_m = 100
+calibration_offset_sec = 0
+aliases = ["Prospect Club", "prospect", "dining"]
+
+[regions.firestone]
+lat = 40.3496
+lon = -74.6572
+radius_m = 100
+calibration_offset_sec = 0
+aliases = ["Firestone", "Firestone Library", "library"]
+
+[regions.nassau_starbucks]
+lat = 40.3499
+lon = -74.6591
+radius_m = 100
+calibration_offset_sec = 0
+aliases = ["Nassau Starbucks", "starbucks", "Starbucks"]
+
+# --- Overlapping-geofence guard ----------------------------------------------
+# henry_hall and firestone are physically close, so their 100m geofences overlap
+# and produce near-instant "transitions" that aren't real trips. A transit
+# faster than the seconds below is flagged `suspect` and excluded from stats.
+# Keyed "from->to"; add both directions.
+[min_transit]
+"henry_hall->firestone" = 120
+"firestone->henry_hall" = 120

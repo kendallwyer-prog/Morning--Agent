@@ -1,0 +1,4 @@
+# Geofence ingestion service (Phase 1). Pure-stdlib for sqlite3, zoneinfo,
+# tomllib (Python 3.11+). Only the HTTP server needs third-party packages.
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
