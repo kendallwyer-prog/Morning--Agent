@@ -125,6 +125,16 @@ on_time_grace_sec = 0
 advice_min_occurrences = 8
 # `advice` suggests leaving LATER if you're habitually this early.
 too_early_sec = 600
+# Once you've been warned that geofence data stopped arriving, don't warn again
+# for this many hours. A warning every 20 seconds is one you learn to ignore.
+silence_repeat_hours = 12
+
+[digest]
+# The weekly "how you actually did" message: real travel times, on-time record,
+# and any suggested config change. Sent at most once per calendar week.
+enabled = true
+day = "sun"
+time = "19:00"
 
 [coffee]
 region = "nassau_starbucks"

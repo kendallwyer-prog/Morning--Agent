@@ -27,7 +27,7 @@ from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from . import advice as advice_mod
-from . import alerts, coffee, grading
+from . import alerts, coffee, digest, grading, health
 from .config import Config
 from .ingest.timeutil import parse_iso
 from .notify.telegram import (
@@ -37,7 +37,7 @@ from .notify.telegram import (
     Update,
     parse_callback_data,
 )
-from .predict import first_event_between
+from .predict import current_region, first_event_between
 from .schedule import Occurrence, due_now, stale, today_local, upcoming
 from .stats import compute_stats, format_stats
 
@@ -95,9 +95,13 @@ _HELP = (
     "/today — today's departure times\n"
     "/next — the next thing you have to leave for\n"
     "/coffee — when you can fit in a coffee run\n"
+    "/where — where I think you are\n"
     "/advice — should you be leaving earlier or later\n"
+    "/digest — this week's summary (also sent weekly)\n"
     "/stats — measured travel times\n"
-    "/help — this message"
+    "/help — this message\n\n"
+    "You can also reply <code>omw</code> or <code>skip</code> instead of "
+    "tapping the buttons."
 )
 
 
@@ -254,6 +258,16 @@ def handle_text(
         else:
             o = nxt[0]
             client.send(departure_text(o, config, now))
+    elif cmd == "where":
+        here = current_region(conn)
+        client.send(
+            f"📍 You're at <b>{config.region_name(here)}</b>."
+            if here
+            else "📍 Not inside any geofence right now (in transit, or "
+            "somewhere I don't track)."
+        )
+    elif cmd in ("digest", "week"):
+        client.send(digest.build(conn, config, now))
     elif cmd == "advice":
         client.send(
             "<pre>" + advice_mod.format_advice(advice_mod.advise_all(conn, config, now))
@@ -345,12 +359,18 @@ def tick(
     missed = close_missed(conn, config, now)
     sent = send_due(conn, config, client, now)
     nudged = send_nudges(conn, config, client, now)
+    # Housekeeping: the silent-data alarm and the weekly summary. Both are
+    # self-throttling, so calling them on every tick is correct and cheap.
+    watched = health.check(conn, config, client, now)
+    digested = digest.maybe_send(conn, config, client, now)
     handled = poll_updates(conn, config, client, now) if poll else 0
     return {
         "graded": len(graded),
         "missed": len(missed),
         "sent": len(sent),
         "nudged": len(nudged),
+        "health": watched.kind,
+        "digest": digested,
         "updates": handled,
     }
 

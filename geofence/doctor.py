@@ -36,9 +36,14 @@ def run_doctor(conn: sqlite3.Connection, config: Config, now: datetime | None = 
     now = now or datetime.now(timezone.utc)
     problems: list[str] = []
 
+    # MAX(), not "last row by id": normally receipt order IS insertion order,
+    # but a backfilled or replayed payload would otherwise make the newest data
+    # look ancient and fire a false silence alarm.
     last_row = conn.execute(
-        "SELECT received_at_utc FROM raw_events ORDER BY id DESC LIMIT 1"
+        "SELECT MAX(received_at_utc) AS received_at_utc FROM raw_events"
     ).fetchone()
+    if last_row and last_row["received_at_utc"] is None:
+        last_row = None
     last_event = parse_iso(last_row["received_at_utc"]) if last_row else None
 
     age_hours = None

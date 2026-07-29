@@ -83,6 +83,19 @@ class Alerting:
     advice_min_occurrences: int = 8
     # Advice: suggest leaving later if you are habitually this early.
     too_early_sec: int = 600
+    # Health: once the data has gone silent and you've been told, don't tell you
+    # again for this many hours. A warning you get every 20 seconds is one you
+    # learn to ignore, which defeats the point of having it.
+    silence_repeat_hours: float = 12.0
+
+
+@dataclass
+class Digest:
+    """The weekly "here's how you're actually doing" message."""
+
+    enabled: bool = True
+    day: str = "sun"       # one of _DAY_IDS
+    time: str = "19:00"    # local wall clock
 
 
 @dataclass
@@ -136,6 +149,7 @@ class Config:
     alerting: Alerting = field(default_factory=Alerting)
     coffee: Coffee = field(default_factory=Coffee)
     telegram: Telegram = field(default_factory=Telegram)
+    digest: Digest = field(default_factory=Digest)
 
     def region_name(self, region_id: str) -> str:
         """Display name for messages, falling back to a readable form of the id
@@ -199,7 +213,18 @@ def load_config(path: str | None = None) -> Config:
         on_time_grace_sec=int(al.get("on_time_grace_sec", 0)),
         advice_min_occurrences=int(al.get("advice_min_occurrences", 8)),
         too_early_sec=int(al.get("too_early_sec", 600)),
+        silence_repeat_hours=float(al.get("silence_repeat_hours", 12.0)),
     )
+
+    dg = data.get("digest", {})
+    digest = Digest(
+        enabled=bool(dg.get("enabled", True)),
+        day=str(dg.get("day", "sun")).strip().lower()[:3],
+        time=str(dg.get("time", "19:00")),
+    )
+    if digest.day not in _DAY_IDS:
+        raise ValueError(f"[digest] day '{digest.day}' is not a valid day")
+    _parse_hhmm(digest.time)
 
     cf = data.get("coffee", {})
     coffee = Coffee(
@@ -237,6 +262,7 @@ def load_config(path: str | None = None) -> Config:
         alerting=alerting,
         coffee=coffee,
         telegram=telegram,
+        digest=digest,
     )
 
 

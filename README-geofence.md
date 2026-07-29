@@ -50,6 +50,11 @@ that tells you to start leaving earlier or later.
 - Silent grading of every occurrence — on time, late, no-show — which feeds
   `advice`: *leave earlier* or *leave later*, with the exact config change.
 - `/coffee` on demand: the best window today that doesn't wreck your schedule.
+- A **weekly digest** so the "leave earlier/later" verdict reaches you without
+  being asked, with the numbers behind it.
+- A **silent-data alarm**: if crossings stop arriving, you get told — over
+  Telegram, once, with the fix — instead of finding a hole in the data weeks
+  later.
 
 ---
 
@@ -344,6 +349,65 @@ assumption about how long practice runs. The earliest window that fits wins,
 and the answer always names the commitment that bounds it, so the constraint is
 visible rather than mysterious. If nothing fits, it says so and why.
 
+## The weekly digest
+
+Sunday at 19:00 by default (`[digest]` in `geofence.toml`; `/digest` any time):
+
+```
+📊 Your week
+
+Swim practice
+  On time 4/5, skipped 1
+  Walk: typically 7 min, planned on 9 min (p80 of 23 trips)
+  Timing looks right — late 20% of 10 trips, typically 3 min to spare.
+
+Lunch at the club
+  On time 5/5
+  Walk: typically 6 min, planned on 7 min (p80 of 19 trips)
+  You could leave later: typically 12 min early, and never late in 11 trips.
+  → geofence.toml: safety_margin_sec 300 → 180
+```
+
+It reports the median *and* the p80 the alerts actually plan on, so you can see
+the gap between your typical walk and the one being planned for. If more than a
+third of the week's segments were incomplete or suspect, it says so — a week
+where the data didn't record is a week whose numbers you shouldn't act on.
+
+Sent at most once per week, keyed on the most recent send moment that's passed.
+If the box was off all Sunday evening and boots Monday, you get that week's
+digest late rather than never — and a machine off for three weeks sends one
+current digest, not a backlog. Installing the agent doesn't fire one
+immediately; the first real send is the first Sunday after setup.
+
+## If the data stops
+
+This is the failure that would actually kill the project. Nothing visibly
+breaks: alerts keep firing on stale estimates and every occurrence quietly
+grades as `no_show`, so you'd find out weeks later, from a hole in the data.
+
+The agent watches for it and tells you:
+
+```
+⚠️ No geofence data for 9h.
+Departure times are running on stale estimates, and today's commitments
+will grade as no-shows.
+Check the Shortcut automations are still set to Run Immediately (iOS turns
+them off after some updates), and that Location access is still Always.
+Last seen at: Henry Hall.
+```
+
+Two rules keep it from becoming noise. You're told **once**, then not again for
+`silence_repeat_hours` (default 12) — a warning that repeats every 20 seconds
+is one you learn to swipe away. And when data resumes you get a **recovery**
+message, which is what makes the warning trustworthy: silence from the bot then
+genuinely means the data is flowing, not that it gave up.
+
+A brand-new install with no events ever recorded is *not* treated as an
+incident — that's "not set up yet", not "something broke".
+
+`python -m geofence doctor` still exits non-zero for cron, and remains the
+right tool for machine monitoring.
+
 ---
 
 ## CLI reference
@@ -364,13 +428,14 @@ python -m geofence agent once [--no-poll]       # a single tick (cron / testing)
 python -m geofence plan [--days N]              # computed departure times
 python -m geofence coffee                       # best coffee window today
 python -m geofence advice                       # leave earlier or later?
+python -m geofence digest [--send]              # this week's summary
 python -m geofence telegram test                # confirm the bot works
 ```
 
 ### Telegram commands
 
-`/today` · `/next` · `/coffee` · `/advice` · `/stats` · `/help`, plus `omw` and
-`skip` as typed equivalents of the buttons.
+`/today` · `/next` · `/coffee` · `/where` · `/advice` · `/digest` · `/stats` ·
+`/help`, plus `omw` and `skip` as typed equivalents of the buttons.
 
 ### `stats`
 
@@ -470,7 +535,7 @@ pip install pytest
 python -m pytest
 ```
 
-85 tests, no network and no waiting for 5:37am — the whole tick takes an
+101 tests, no network and no waiting for 5:37am — the whole tick takes an
 injected `now`, and Telegram is a fake transport.
 
 | File | Covers |
@@ -483,3 +548,4 @@ injected `now`, and Telegram is a fake transport.
 | `test_grading_advice.py` | outcome grading, earlier/later advice |
 | `test_coffee.py` | window feasibility against the day's schedule |
 | `test_telegram.py` | payload shaping, update parsing, failure handling |
+| `test_health_digest.py` | silence alarm + recovery, weekly digest scheduling |

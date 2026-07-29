@@ -155,6 +155,25 @@ def cmd_coffee(args, config):
     print(text.replace("<b>", "").replace("</b>", ""))
 
 
+def cmd_digest(args, config):
+    from .digest import build
+
+    conn = _conn(config)
+    text = build(conn, config, datetime.now(timezone.utc))
+    conn.close()
+    if args.send:
+        from .agent import make_client
+
+        result = make_client(config).send(text)
+        print("Sent." if result.ok else f"Failed: {result.error}")
+        if not result.ok:
+            sys.exit(1)
+        return
+    for tag in ("<b>", "</b>", "<code>", "</code>"):
+        text = text.replace(tag, "")
+    print(text)
+
+
 def cmd_advice(args, config):
     conn = _conn(config)
     items = advise_all(conn, config, datetime.now(timezone.utc))
@@ -232,6 +251,10 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("advice", help="leave earlier or later?").set_defaults(
         func=cmd_advice
     )
+
+    dg = sub.add_parser("digest", help="this week's summary")
+    dg.add_argument("--send", action="store_true", help="send it to Telegram now")
+    dg.set_defaults(func=cmd_digest)
 
     tg = sub.add_parser("telegram", help="Telegram helpers")
     tg_sub = tg.add_subparsers(dest="telegram_command", required=True)
