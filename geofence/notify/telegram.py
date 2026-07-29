@@ -114,6 +114,10 @@ class TelegramClient:
             return SendResult(ok=False, error="send failed")
         return SendResult(ok=True, message_id=result.get("message_id"))
 
+    def get_me(self) -> dict | None:
+        """Identify the bot behind the token. None if the token is rejected."""
+        return self._call("getMe", {})
+
     def answer_callback(self, callback_query_id: str, text: str = "") -> None:
         """Acknowledge a button tap so the client stops showing a spinner."""
         self._call(

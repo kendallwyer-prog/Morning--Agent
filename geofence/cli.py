@@ -12,6 +12,7 @@
   plan                   show today's computed departure times
   coffee                 when to get coffee today
   advice                 should you be leaving earlier or later
+  telegram link          connect a BotFather bot (finds your chat id)
   telegram test          send a test message to confirm the bot works
 """
 
@@ -19,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sys
 from datetime import datetime, timezone
 
@@ -188,6 +190,41 @@ def cmd_advice(args, config):
     print(format_advice(items))
 
 
+def cmd_telegram_link(args, config):
+    from .link import link, write_env
+
+    token = os.environ.get("TELEGRAM_BOT_TOKEN") or args.token
+    if not token:
+        print(
+            "Need the bot token. Either:\n"
+            "  export TELEGRAM_BOT_TOKEN=123456789:AA...\n"
+            "  python -m geofence telegram link\n"
+            "or pass it directly:\n"
+            "  python -m geofence telegram link --token 123456789:AA...",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+
+    print("Checking the token...")
+    result = link(token, wait=not args.no_wait)
+    if result.bot_username:
+        print(f"Bot: @{result.bot_username}")
+    if not result.ok:
+        print(f"\n{result.error}", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"Found your chat: {result.chat_id}  (last message: {result.chat_name!r})")
+    if args.write:
+        path = write_env(args.write, token, result.chat_id)
+        print(f"\nWrote TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID to {path} (mode 600).")
+        print("Make sure that file is gitignored — the token IS your bot.")
+    else:
+        print("\nAdd these to geofence.env (and never to git):")
+        print(f"  TELEGRAM_BOT_TOKEN={token}")
+        print(f"  TELEGRAM_CHAT_ID={result.chat_id}")
+    print("\nThen: python -m geofence telegram test")
+
+
 def cmd_telegram_test(args, config):
     from .agent import make_client
 
@@ -272,6 +309,24 @@ def build_parser() -> argparse.ArgumentParser:
     tg_sub.add_parser("test", help="send a test message").set_defaults(
         func=cmd_telegram_test
     )
+    lk = tg_sub.add_parser(
+        "link", help="connect an existing bot: finds your chat id for you"
+    )
+    lk.add_argument("--token", default=None, help="bot token (or set TELEGRAM_BOT_TOKEN)")
+    lk.add_argument(
+        "--write",
+        nargs="?",
+        const="geofence.env",
+        default=None,
+        metavar="PATH",
+        help="write both values to an env file (default: geofence.env)",
+    )
+    lk.add_argument(
+        "--no-wait",
+        action="store_true",
+        help="don't wait for you to message the bot; fail immediately",
+    )
+    lk.set_defaults(func=cmd_telegram_link)
 
     return p
 

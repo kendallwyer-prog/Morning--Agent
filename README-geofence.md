@@ -208,34 +208,40 @@ synthesizes a stable dedupe key from `tid + tst + event + region`.
 
 ## The agent: Telegram setup
 
-### 1. Make the bot
+### 1. Connect the bot
 
-1. In Telegram, message [@BotFather](https://t.me/BotFather) → `/newbot`.
-2. Give it a name and a username. BotFather replies with a **token** —
-   `123456789:AAF...`. Anyone holding that token *is* your bot, so treat it
-   like a password.
-3. **Message your new bot** (send it anything). A bot can't start a
-   conversation with you, so until you do, it has nowhere to send alerts.
-4. Get your chat id:
+**Already have a bot from BotFather?** Skip to the `link` command below — it
+works with any existing bot. Otherwise message
+[@BotFather](https://t.me/BotFather) → `/newbot`, give it a name and username,
+and it replies with a **token** like `123456789:AAF...`. Anyone holding that
+token *is* your bot, so treat it like a password.
 
-   ```bash
-   curl "https://api.telegram.org/bot<YOUR_TOKEN>/getUpdates"
-   ```
+Then one command does the rest:
 
-   Read `result[0].message.chat.id` out of the JSON.
+```bash
+export TELEGRAM_BOT_TOKEN=123456789:AAF...
+python -m geofence telegram link --write
+```
 
-5. Put both in `geofence.env` (the same file as `GEOFENCE_SECRET`):
+It verifies the token, waits up to three minutes for you to say hello, reads
+your chat id off that message, and writes both values to `geofence.env` with
+mode 600. Drop `--write` to print them instead of writing the file.
 
-   ```
-   TELEGRAM_BOT_TOKEN=123456789:AAF...
-   TELEGRAM_CHAT_ID=987654321
-   ```
+> **Message the bot yourself.** A bot cannot open a conversation — until you
+> send it something, it has nowhere to deliver alerts. `link` waits for exactly
+> that and tells you the username to look for.
 
-6. Confirm the round trip:
+Linking reads without acknowledging, so your "hello" stays queued and the
+agent's own cursor is untouched. Running `link` twice, or after the agent has
+been running for weeks, changes nothing.
 
-   ```bash
-   export $(cat geofence.env) && python -m geofence telegram test
-   ```
+Then confirm the round trip:
+
+```bash
+export $(cat geofence.env) && python -m geofence telegram test
+```
+
+Only that chat id can drive the bot afterwards.
 
 Only that chat id can drive the bot. Anyone else who finds your bot's username
 gets ignored (and logged), because a stranger tapping "skipping today" for you
@@ -454,6 +460,7 @@ python -m geofence plan [--days N]              # computed departure times
 python -m geofence coffee                       # best coffee window today
 python -m geofence advice                       # leave earlier or later?
 python -m geofence digest [--send]              # this week's summary
+python -m geofence telegram link [--write]      # connect a bot, find your chat id
 python -m geofence telegram test                # confirm the bot works
 ```
 
@@ -576,3 +583,4 @@ injected `now`, and Telegram is a fake transport.
 | `test_health_digest.py` | silence alarm + recovery, weekly digest scheduling |
 | `test_setup_check.py` | half-built automations, uncovered commitment legs |
 | `test_config_file.py` | the shipped `geofence.toml` itself, and no leaked secrets |
+| `test_link.py` | bot linking, chat-id discovery, env-file permissions |
