@@ -1,16 +1,31 @@
-# Geofence Ingestion (Phase 1)
+# Geofence Departure Agent
 
-Automatic capture of geofence crossings from your phone, stored immutably and
-turned into travel/dwell **segments**. This is the ingestion + logging layer
-**only** — no alerting, no advice, no scheduling math. That's later phases.
+Your phone quietly reports every geofence crossing. From that, this tells you
+when to leave your dorm to make practice or lunch on time, asks whether you're
+going, and gets better at the estimate every week — over Telegram.
 
-The whole premise is that you'll stop logging manually within three weeks, so
-capture is 100% automatic: your phone POSTs a tiny JSON blob every time you
-cross a geofence, and this service records it.
+```
+🔔 Swim practice — leave in 15 min
+Out the door by 5:45 AM to make denunzio by 6:00 AM.
+Travel: ~9 min (from 23 trips).
+
+        [ 🏃 On my way ]   [ 🙅 Skipping today ]
+```
+
+The whole premise is that you'd stop logging manually within three weeks, so
+nothing asks you to record anything. You tap one button; everything else —
+when you actually left, how long the walk took, whether you made it — is
+measured from the geofence crossings that arrive on their own.
+
+**Phase 1** is the ingestion + logging layer: capture, storage, segments.
+**Phase 2** is the agent: departure alerts, the coffee planner, and the advice
+that tells you to start leaving earlier or later.
 
 ---
 
 ## What it does
+
+**Phase 1 — capture**
 
 - One authenticated HTTP endpoint accepts **both** iPhone Shortcuts JSON **and**
   OwnTracks `transition` payloads, normalizing them into one internal shape.
@@ -23,7 +38,18 @@ cross a geofence, and this service records it.
   systematic iOS bias — see [Design notes](#design-notes)).
 - Stores UTC **and** local time, DST-correct.
 - Dedupes double-fires on a client-supplied (or synthesized) UUID.
-- CLI: `stats`, `doctor`, `calibrate`, `reprocess`.
+
+**Phase 2 — the agent**
+
+- Telegram alerts before every commitment, with **On my way** / **Skipping
+  today** buttons.
+- Departure times computed from your **measured** travel times (p80 of recent
+  trips), so they track your actual pace instead of a guess you typed once.
+- One nudge if you said you were on your way and the geofence says you're
+  still in your room.
+- Silent grading of every occurrence — on time, late, no-show — which feeds
+  `advice`: *leave earlier* or *leave later*, with the exact config change.
+- `/coffee` on demand: the best window today that doesn't wreck your schedule.
 
 ---
 
@@ -150,6 +176,176 @@ synthesizes a stable dedupe key from `tid + tst + event + region`.
 
 ---
 
+## The agent: Telegram setup
+
+### 1. Make the bot
+
+1. In Telegram, message [@BotFather](https://t.me/BotFather) → `/newbot`.
+2. Give it a name and a username. BotFather replies with a **token** —
+   `123456789:AAF...`. Anyone holding that token *is* your bot, so treat it
+   like a password.
+3. **Message your new bot** (send it anything). A bot can't start a
+   conversation with you, so until you do, it has nowhere to send alerts.
+4. Get your chat id:
+
+   ```bash
+   curl "https://api.telegram.org/bot<YOUR_TOKEN>/getUpdates"
+   ```
+
+   Read `result[0].message.chat.id` out of the JSON.
+
+5. Put both in `geofence.env` (the same file as `GEOFENCE_SECRET`):
+
+   ```
+   TELEGRAM_BOT_TOKEN=123456789:AAF...
+   TELEGRAM_CHAT_ID=987654321
+   ```
+
+6. Confirm the round trip:
+
+   ```bash
+   export $(cat geofence.env) && python -m geofence telegram test
+   ```
+
+Only that chat id can drive the bot. Anyone else who finds your bot's username
+gets ignored (and logged), because a stranger tapping "skipping today" for you
+would be a genuinely bad day.
+
+No inbound port is needed: the agent long-polls Telegram over an outbound
+connection, so it runs behind any dorm NAT.
+
+### 2. Describe your commitments
+
+In `geofence.toml`. Two are pre-filled — practice and lunch:
+
+```toml
+[[commitments]]
+id                  = "swim_practice"
+label               = "Swim practice"
+origin              = "henry_hall"      # you leave FROM here
+destination         = "denunzio"        # you must arrive HERE
+arrive_by           = "06:00"           # LOCAL wall clock
+days                = ["mon", "tue", "wed", "thu", "fri"]
+prep_sec            = 900               # how much warning you want
+safety_margin_sec   = 300               # cushion beyond the measured walk
+fallback_travel_sec = 600               # used only until data exists
+```
+
+`arrive_by` is local wall-clock time, resolved per-date, so the morning the
+clocks change, 6:00am practice is still at 6:00am.
+
+Bad region ids and bad day names are rejected **when the config loads**, not at
+5:30am — a typo that silently cancels your alarm is exactly the failure this
+project exists to prevent. Check yours with `python -m geofence plan`.
+
+### 3. Run it
+
+```bash
+export $(cat geofence.env)
+python -m geofence agent          # foreground, for testing
+```
+
+Then install the unit so it survives reboots — same pattern as the ingestion
+server, and both can run side by side:
+
+```bash
+sudo cp systemd/geofence-agent.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now geofence-agent
+journalctl -u geofence-agent -f
+```
+
+---
+
+## How the departure time is worked out
+
+```
+must_leave = arrive_by − travel_estimate − safety_margin_sec
+ping_at    = must_leave − prep_sec
+```
+
+**`travel_estimate` is measured and adapts on its own.** It's the 80th
+percentile of your recent trips on that exact leg (`henry_hall → denunzio`),
+over a rolling 60-day window. You never edit it. As your pace changes — a
+faster route, a snowy February, a knee — every future departure time moves with
+it within days.
+
+Why p80 and not the average: you don't care about your typical walk to the
+pool, you care about not being late. At p80, roughly one trip in five runs
+longer than the estimate, and `safety_margin_sec` is what absorbs those.
+
+**Before there's data**, the estimate falls back to `fallback_travel_sec` and
+the message says so — "*~10 min (estimate — not enough data yet)*". A
+confident-looking number derived from two walks would be a lie, and you'd learn
+to distrust the whole thing.
+
+**Incomplete and suspect segments never count.** The day your phone died, or
+the day you got a ride, is an `incomplete` segment with no duration — so it can
+never be averaged in as a four-hour walk and push your alarm 20 minutes earlier.
+
+## Your answer, and what happens after it
+
+| You tap | Effect |
+|---|---|
+| **🏃 On my way** | Logged. If the geofence still has you in the dorm 5 min past your departure time, you get **one** nudge — never a stream of them. |
+| **🙅 Skipping today** | Logged and closed. No nudge, and — importantly — **it never counts as a late arrival**, so choosing to skip can't slowly push your departure times earlier for no reason. |
+| *nothing* | Graded from the geofence data anyway: you either arrived (on time / late) or you didn't (`no_show`, kept separate from `late` so a forgotten tap isn't read as chronic lateness). |
+
+The buttons can be awkward on a locked screen, so typing `omw` or `skip` logs
+the same thing against the open alert.
+
+**If the agent was down** over a departure time, it does *not* ping you late —
+a "leave now" that lands after you should already have gone is worse than
+silence. The occurrence is recorded as `missed_window` so the gap stays visible
+in your data, and it's excluded from advice (it measures the server, not you).
+
+## Leave earlier or later?
+
+```bash
+python -m geofence advice        # or /advice in Telegram
+```
+
+```
+Swim practice:
+  Leave earlier: late 40% of the last 10 trips (expected ~20% at p80).
+  → geofence.toml: safety_margin_sec 300 → 540
+```
+
+The travel estimate already adapts by itself. What `advice` tunes is the two
+knobs that encode *preference* rather than fact:
+
+- **`safety_margin_sec`** — how much cushion you want. Late more often than the
+  percentile predicts → too thin. Never once used it, and habitually 20 minutes
+  early → too fat, and you're standing around at the pool.
+- **`prep_sec`** — if you consistently walk out five minutes after the ping,
+  the ping should come five minutes sooner.
+
+It stays quiet until there are `advice_min_occurrences` (default 8) real
+occurrences, and it *suggests* rather than rewrites — these are your
+preferences, so the edit is yours to make.
+
+## Coffee
+
+```bash
+python -m geofence coffee        # or /coffee in Telegram
+```
+
+```
+☕ Best time: 7:35 AM (from denunzio)
+   Round trip 14 min + 10 min in the shop.
+   Set off by 11:48 AM to still make Lunch at the club.
+```
+
+It plans the whole round trip — out, queue, back — against the same measured
+travel times, and checks it against every gap left in today's schedule: right
+now from wherever you currently are, and after each commitment. "After
+practice" starts from *your* median stay at DeNunzio, measured, not from an
+assumption about how long practice runs. The earliest window that fits wins,
+and the answer always names the commitment that bounds it, so the constraint is
+visible rather than mysterious. If nothing fits, it says so and why.
+
+---
+
 ## CLI reference
 
 All commands read `geofence.toml` (override with `--config`).
@@ -162,7 +358,19 @@ python -m geofence stats [--min-n N]            # median / p80 / n per segment t
 python -m geofence doctor                       # "have events stopped arriving?" (exit 1 if silent)
 python -m geofence calibrate add <region> <time> [--note ...]
 python -m geofence calibrate estimate           # suggest per-region offsets
+
+python -m geofence agent                        # run the Telegram alerting loop
+python -m geofence agent once [--no-poll]       # a single tick (cron / testing)
+python -m geofence plan [--days N]              # computed departure times
+python -m geofence coffee                       # best coffee window today
+python -m geofence advice                       # leave earlier or later?
+python -m geofence telegram test                # confirm the bot works
 ```
+
+### Telegram commands
+
+`/today` · `/next` · `/coffee` · `/advice` · `/stats` · `/help`, plus `omw` and
+`skip` as typed equivalents of the buttons.
 
 ### `stats`
 
@@ -234,10 +442,24 @@ excluded from stats.
 - `segments` — **derived** matched pairs (`transit` / `dwell`) with status
   `complete` / `incomplete` / `suspect`.
 - `ground_truth` — your manually-entered departure times for calibration.
+- `alerts` — one row per commitment-occurrence: what was planned, what was
+  sent, what you answered, and how it graded.
+- `bot_state` — the Telegram update cursor, so a restart neither loses your
+  button tap nor replays it.
 
 Because `events` and `segments` are fully derived, `reprocess` wipes and rebuilds
 them from `raw_events` — that's how you re-derive everything when your logic
-changes.
+changes. `alerts` is *not* derived: it's the record of what you were actually
+told and what you actually answered, so it survives reprocessing untouched.
+
+### Can it ping me twice?
+
+No, and the mechanism is worth knowing. `alerts` has a
+`UNIQUE(commitment_id, occurrence_date, kind)` constraint, and the row is
+claimed with `INSERT OR IGNORE` **before** the Telegram call is made. A restart
+loop, two agents started by mistake, or a tick that runs twice in the same
+second all lose the race and send nothing. If the send itself fails, the claim
+is released so the next tick retries — within the send window only.
 
 ---
 
@@ -245,8 +467,19 @@ changes.
 
 ```bash
 pip install pytest
-python -m pytest tests/test_debounce.py tests/test_segments.py tests/test_normalize.py
+python -m pytest
 ```
 
-`test_debounce.py` covers flap suppression; `test_segments.py` covers the
-incomplete-pair exclusion and the overlapping-geofence guard.
+85 tests, no network and no waiting for 5:37am — the whole tick takes an
+injected `now`, and Telegram is a fake transport.
+
+| File | Covers |
+|---|---|
+| `test_debounce.py` | boundary-flap suppression |
+| `test_segments.py` | incomplete-pair exclusion, overlapping-geofence guard |
+| `test_normalize.py` | both client payload formats |
+| `test_schedule.py` | departure maths, DST, p80 estimation, cold start |
+| `test_agent.py` | send-once, retry, missed windows, responses, nudges, auth |
+| `test_grading_advice.py` | outcome grading, earlier/later advice |
+| `test_coffee.py` | window feasibility against the day's schedule |
+| `test_telegram.py` | payload shaping, update parsing, failure handling |

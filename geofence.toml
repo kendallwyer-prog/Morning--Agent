@@ -29,6 +29,7 @@ silence_threshold_hours = 6
 # `python -m geofence calibrate estimate` after week one and paste the numbers.
 
 [regions.henry_hall]
+name = "Henry Hall"   # how it reads in Telegram messages
 lat = 40.3448
 lon = -74.6558
 radius_m = 100
@@ -36,6 +37,7 @@ calibration_offset_sec = 0
 aliases = ["Henry Hall", "henry", "dorm"]
 
 [regions.denunzio]
+name = "DeNunzio Pool"   # how it reads in Telegram messages
 lat = 40.3460
 lon = -74.6520
 radius_m = 100
@@ -43,6 +45,7 @@ calibration_offset_sec = 0
 aliases = ["DeNunzio", "DeNunzio Pool", "pool"]
 
 [regions.prospect_club]
+name = "the club"   # how it reads in Telegram messages
 lat = 40.3479
 lon = -74.6540
 radius_m = 100
@@ -50,6 +53,7 @@ calibration_offset_sec = 0
 aliases = ["Prospect Club", "prospect", "dining"]
 
 [regions.firestone]
+name = "Firestone"   # how it reads in Telegram messages
 lat = 40.3496
 lon = -74.6572
 radius_m = 100
@@ -57,11 +61,86 @@ calibration_offset_sec = 0
 aliases = ["Firestone", "Firestone Library", "library"]
 
 [regions.nassau_starbucks]
+name = "Nassau St Starbucks"   # how it reads in Telegram messages
 lat = 40.3499
 lon = -74.6591
 radius_m = 100
 calibration_offset_sec = 0
 aliases = ["Nassau Starbucks", "starbucks", "Starbucks"]
+
+# --- Commitments (Phase 2) ---------------------------------------------------
+# Places you have to be, by a wall-clock time. The departure maths is:
+#
+#     must_leave = arrive_by - travel_estimate - safety_margin_sec
+#     ping_at    = must_leave - prep_sec
+#
+# travel_estimate is MEASURED (p80 of your recent trips on that leg) and moves
+# on its own as your pace changes -- you never edit it. The two knobs below are
+# preferences, not facts, so they stay yours: `python -m geofence advice` tells
+# you when the data says one of them is wrong.
+#
+# arrive_by is LOCAL wall clock, resolved per-date, so DST just works.
+# fallback_travel_sec is used only until there are [alerting] min_samples trips
+# on the leg; the alert says so out loud rather than faking confidence.
+
+[[commitments]]
+id                  = "swim_practice"
+label               = "Swim practice"
+origin              = "henry_hall"
+destination         = "denunzio"
+arrive_by           = "06:00"
+days                = ["mon", "tue", "wed", "thu", "fri"]
+prep_sec            = 900     # 15 min warning: suit, goggles, out the door
+safety_margin_sec   = 300     # 5 min cushion on top of the measured walk
+fallback_travel_sec = 600     # guess until the data arrives
+
+[[commitments]]
+id                  = "club_lunch"
+label               = "Lunch at the club"
+origin              = "henry_hall"
+destination         = "prospect_club"
+arrive_by           = "12:15"
+days                = ["mon", "tue", "wed", "thu", "fri"]
+prep_sec            = 600
+safety_margin_sec   = 300
+fallback_travel_sec = 600
+
+[alerting]
+# Travel estimates use this percentile, NOT the mean -- you care about not
+# being late, not about the average day. p80 => beaten roughly 1 trip in 5,
+# which is what safety_margin_sec exists to absorb.
+percentile = 80.0
+# Below this many observed trips on a leg, use fallback_travel_sec and say so.
+min_samples = 5
+# Only trips from the last N days count, so estimates track your current pace.
+lookback_days = 60
+# If the agent was down over a departure time, do NOT ping late: a "leave now"
+# that arrives after you should have gone is worse than silence. Recorded as
+# `missed_window` instead.
+max_late_send_sec = 300
+# After "on my way", nudge once if the geofence says you never left.
+nudge_after_sec = 300
+on_time_grace_sec = 0
+# Occurrences needed before `advice` will suggest changing anything.
+advice_min_occurrences = 8
+# `advice` suggests leaving LATER if you're habitually this early.
+too_early_sec = 600
+
+[coffee]
+region = "nassau_starbucks"
+dwell_sec = 600           # queue + collect
+slack_sec = 300           # never cut a commitment closer than this
+fallback_travel_sec = 600
+# Coffee is never suggested outside these local hours -- set them to when the
+# shop is actually open. 06:30 leaves room for a post-practice run.
+earliest = "06:30"
+latest = "20:00"
+
+[telegram]
+# The bot token and chat id are secrets and live ONLY in the environment
+# (TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID) -- never here. These are just timings.
+poll_timeout_sec = 25   # long-poll duration for getUpdates
+tick_sec = 20           # floor on the loop interval when Telegram is down
 
 # --- Overlapping-geofence guard ----------------------------------------------
 # henry_hall and firestone are physically close, so their 100m geofences overlap

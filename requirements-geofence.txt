@@ -2,3 +2,7 @@
 # tomllib (Python 3.11+). Only the HTTP server needs third-party packages.
 fastapi>=0.110.0
 uvicorn[standard]>=0.29.0
+
+# The Phase 2 agent (Telegram alerts, prediction, coffee planner) adds NO
+# dependencies -- the Bot API client is stdlib urllib. So `python -m geofence
+# agent`, `plan`, `coffee` and `advice` all run on a bare Python 3.11+.

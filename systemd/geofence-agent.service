@@ -1,0 +1,30 @@
+[Unit]
+Description=Geofence departure agent (Telegram alerts)
+After=network-online.target geofence.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+# --- Adjust these three to your box -----------------------------------------
+User=pi
+WorkingDirectory=/home/pi/Morning--Agent
+# TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID live here, NOT in git. chmod 600 it.
+EnvironmentFile=/home/pi/Morning--Agent/geofence.env
+# Use the venv's python if you made one, e.g. /home/pi/Morning--Agent/.venv/bin/python
+ExecStart=/usr/bin/python3 -m geofence agent
+
+# This is the whole product: if it dies at 3am, tomorrow's 5:37am ping still
+# has to happen. Restart forever, and don't let systemd's start-limit give up.
+Restart=always
+RestartSec=10
+StartLimitIntervalSec=0
+
+# The agent makes only OUTBOUND connections (Telegram long-poll); it never
+# listens on a port. Hardened a little further than the ingestion server.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=false
+
+[Install]
+WantedBy=multi-user.target

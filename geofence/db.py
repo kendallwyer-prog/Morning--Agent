@@ -69,6 +69,38 @@ CREATE TABLE IF NOT EXISTS ground_truth (
     note              TEXT,
     created_at_utc    TEXT NOT NULL
 );
+
+-- 4. One row per commitment-occurrence (e.g. "swim_practice on 2026-03-04").
+-- The UNIQUE constraint is the whole anti-double-send mechanism: the row is
+-- claimed BEFORE the Telegram call, so a crash-restart can never re-ping you.
+CREATE TABLE IF NOT EXISTS alerts (
+    id                  INTEGER PRIMARY KEY,
+    commitment_id       TEXT NOT NULL,
+    occurrence_date     TEXT NOT NULL,        -- LOCAL date, YYYY-MM-DD
+    kind                TEXT NOT NULL,        -- 'departure' | 'nudge'
+    planned_depart_utc  TEXT NOT NULL,        -- when you must actually walk out
+    arrive_by_utc       TEXT NOT NULL,
+    travel_estimate_sec INTEGER NOT NULL,
+    estimate_source     TEXT NOT NULL,        -- 'observed' | 'fallback'
+    estimate_n          INTEGER NOT NULL DEFAULT 0,
+    sent_at_utc         TEXT,                 -- NULL = claimed but not yet sent
+    telegram_message_id INTEGER,
+    response            TEXT,                 -- 'on_my_way' | 'skipping'
+    responded_at_utc    TEXT,
+    actual_depart_utc   TEXT,                 -- filled in by grading
+    actual_arrive_utc   TEXT,
+    outcome             TEXT,                 -- see grading.OUTCOMES
+    graded_at_utc       TEXT,
+    UNIQUE(commitment_id, occurrence_date, kind)
+);
+CREATE INDEX IF NOT EXISTS ix_alerts_pending ON alerts(outcome, occurrence_date);
+
+-- 5. Tiny key/value store for the Telegram getUpdates offset and similar
+-- cursors. Persisted so a restart neither replays nor drops your button taps.
+CREATE TABLE IF NOT EXISTS bot_state (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
 """
 
 
