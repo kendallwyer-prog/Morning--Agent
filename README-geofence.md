@@ -560,7 +560,7 @@ pip install pytest
 python -m pytest
 ```
 
-107 tests, no network and no waiting for 5:37am — the whole tick takes an
+115 tests, no network and no waiting for 5:37am — the whole tick takes an
 injected `now`, and Telegram is a fake transport.
 
 | File | Covers |
@@ -575,3 +575,4 @@ injected `now`, and Telegram is a fake transport.
 | `test_telegram.py` | payload shaping, update parsing, failure handling |
 | `test_health_digest.py` | silence alarm + recovery, weekly digest scheduling |
 | `test_setup_check.py` | half-built automations, uncovered commitment legs |
+| `test_config_file.py` | the shipped `geofence.toml` itself, and no leaked secrets |
