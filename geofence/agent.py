@@ -98,6 +98,7 @@ _HELP = (
     "/where — where I think you are\n"
     "/advice — should you be leaving earlier or later\n"
     "/digest — this week's summary (also sent weekly)\n"
+    "/setup — is every geofence reporting both directions?\n"
     "/stats — measured travel times\n"
     "/help — this message\n\n"
     "You can also reply <code>omw</code> or <code>skip</code> instead of "
@@ -268,6 +269,10 @@ def handle_text(
         )
     elif cmd in ("digest", "week"):
         client.send(digest.build(conn, config, now))
+    elif cmd == "setup":
+        from .setup_check import format_setup, run_setup_check
+
+        client.send("<pre>" + format_setup(run_setup_check(conn, config)) + "</pre>")
     elif cmd == "advice":
         client.send(
             "<pre>" + advice_mod.format_advice(advice_mod.advise_all(conn, config, now))

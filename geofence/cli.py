@@ -70,11 +70,18 @@ def cmd_stats(args, config):
 
 
 def cmd_doctor(args, config):
+    from .setup_check import format_setup, run_setup_check
+
     conn = _conn(config)
     rep = run_doctor(conn, config)
+    setup = run_setup_check(conn, config) if args.setup else None
     conn.close()
     print(format_report(rep))
-    sys.exit(0 if rep.ok else 1)
+    if setup is not None:
+        print()
+        print(format_setup(setup))
+    ok = rep.ok and (setup is None or setup.ok)
+    sys.exit(0 if ok else 1)
 
 
 def cmd_calibrate_add(args, config):
@@ -215,9 +222,13 @@ def build_parser() -> argparse.ArgumentParser:
     st.add_argument("--min-n", type=int, default=_DEFAULT_MIN_N)
     st.set_defaults(func=cmd_stats)
 
-    sub.add_parser("doctor", help="have events stopped arriving?").set_defaults(
-        func=cmd_doctor
+    dr = sub.add_parser("doctor", help="have events stopped arriving?")
+    dr.add_argument(
+        "--setup",
+        action="store_true",
+        help="also check every region reports BOTH directions (deploy day)",
     )
+    dr.set_defaults(func=cmd_doctor)
 
     cal = sub.add_parser("calibrate", help="ground-truth departure calibration")
     cal_sub = cal.add_subparsers(dest="cal_command", required=True)

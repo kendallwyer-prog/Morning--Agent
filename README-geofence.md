@@ -166,9 +166,34 @@ After setting up one region, physically cross it (or use Shortcuts' "run" on the
 automation for a smoke test), then:
 
 ```bash
-python -m geofence doctor    # should show a recent "last event"
-python -m geofence stats     # buckets fill in as you accumulate crossings
+python -m geofence doctor --setup   # did all 10 automations actually get built?
+python -m geofence stats            # buckets fill as you accumulate crossings
 ```
+
+**Run `doctor --setup` on deploy day.** Ten hand-built automations is a lot of
+repetitive tapping, and the mistake it catches is the one that doesn't look
+like a mistake: you build **Arrive** for a region and forget **Leave**.
+Arrivals keep landing, so plain `doctor` reports a healthy, recent stream —
+but a transit needs an *exit* to start it, so that leg silently never produces
+a travel time and its alerts run on `fallback_travel_sec` forever.
+
+```
+setup: INCOMPLETE
+
+  region coverage:
+    region                arrivals  departures
+    denunzio                    31          30
+    henry_hall                  44           0  !
+
+  problems:
+    ! Henry Hall: 44 arrivals, 0 departures — the 'Leave' automation is
+      missing. Travel times from here will never be measured.
+```
+
+It also flags a commitment leg that has never once completed, and separates
+*problems* (a region your commitments depend on) from *notes* (a region like
+`firestone` that nothing needs yet). Exits non-zero when there's a problem, so
+it works in cron too. Also available as `/setup` in Telegram.
 
 ### OwnTracks alternative
 
@@ -419,7 +444,7 @@ python -m geofence serve [--host H --port P]   # run the ingestion server
 python -m geofence initdb                       # create schema
 python -m geofence reprocess                    # re-derive events+segments from raw
 python -m geofence stats [--min-n N]            # median / p80 / n per segment type
-python -m geofence doctor                       # "have events stopped arriving?" (exit 1 if silent)
+python -m geofence doctor [--setup]             # silent? and (--setup) are all 10 automations wired?
 python -m geofence calibrate add <region> <time> [--note ...]
 python -m geofence calibrate estimate           # suggest per-region offsets
 
@@ -434,8 +459,8 @@ python -m geofence telegram test                # confirm the bot works
 
 ### Telegram commands
 
-`/today` · `/next` · `/coffee` · `/where` · `/advice` · `/digest` · `/stats` ·
-`/help`, plus `omw` and `skip` as typed equivalents of the buttons.
+`/today` · `/next` · `/coffee` · `/where` · `/advice` · `/digest` · `/setup` ·
+`/stats` · `/help`, plus `omw` and `skip` as typed equivalents of the buttons.
 
 ### `stats`
 
@@ -535,7 +560,7 @@ pip install pytest
 python -m pytest
 ```
 
-101 tests, no network and no waiting for 5:37am — the whole tick takes an
+107 tests, no network and no waiting for 5:37am — the whole tick takes an
 injected `now`, and Telegram is a fake transport.
 
 | File | Covers |
@@ -549,3 +574,4 @@ injected `now`, and Telegram is a fake transport.
 | `test_coffee.py` | window feasibility against the day's schedule |
 | `test_telegram.py` | payload shaping, update parsing, failure handling |
 | `test_health_digest.py` | silence alarm + recovery, weekly digest scheduling |
+| `test_setup_check.py` | half-built automations, uncovered commitment legs |
